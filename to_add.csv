@@ -1,0 +1,11 @@
+config_id,config_name,config_desc,config_settings,status,remarks
+CAND-1,Enable PUA protection,Block potentially unwanted applications,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\PUAProtection=1,active,""
+CAND-2,Enforce NTLMv2 only,Disable LM/NTLMv1 by setting highest compatibility,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\LmCompatibilityLevel=5,active,""
+CAND-3,Protect LSASS as PPL,Run LSASS as a protected process to mitigate credential theft,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL=1,active,""
+CAND-4,Force dark mode UI,Set system and apps to dark theme for user preference,HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme=0; SystemUsesLightTheme=0,draft,""
+CAND-5,Taskbar align left,Set Windows 11 taskbar alignment to left,HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarAl=0,draft,""
+CAND-6,Enable Credential Guard,Use VBS to isolate secrets and protect credentials,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\LsaCfgFlags=1,active,""
+CAND-7,Disable WDigest clear-text caching,Prevent WDigest from storing clear-text creds in memory,HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest\UseLogonCredential=0,active,""
+CAND-8,Require SMB signing (server),Require signing on SMB server to prevent tampering,HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters\RequireSecuritySignature=1,active,""
+CAND-9,Disable Print Spooler service (servers w/o printing),Reduce PrintNightmare class risk on non-print servers,HKLM\SYSTEM\CurrentControlSet\Services\Spooler\Start=4,active,""
+CAND-10,Block RDP device redirection (drive & clipboard),Prevent data exfil via RDP redirection,HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services\fDisableCdm=1; fDisableClip=1,active,""

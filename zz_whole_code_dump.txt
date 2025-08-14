@@ -1,0 +1,1674 @@
+===== PROJECT TREE =====
+.
+|-- .gitignore
+|-- .vscode
+|   `-- mcp.json
+|-- Pipfile
+|-- Pipfile.lock
+|-- config.py
+|-- data.csv
+|-- explain.txt
+|-- local.db
+|-- main_mcp_server.py
+|-- main_reset.py
+|-- mcp_tools
+|   |-- db_crud.py
+|   |-- db_search.py
+|   |-- mitre_visualize.py
+|   `-- show_stats.py
+|-- prompt_auditor_qns.md
+|-- prompt_mitre_enrichment.md
+|-- prompt_to_add.md
+|-- sample_events.json
+|-- src
+|   |-- db
+|   |   |-- db_embeddings.py
+|   |   |-- db_filters.py
+|   |   |-- db_init.py
+|   |   |-- db_operations.py
+|   |   |-- db_paired_ops.py
+|   |   |-- db_reset.py
+|   |   `-- schema_map.py
+|   |-- ingest.py
+|   |-- model_loader.py
+|   |-- observability
+|   |   |-- init_logging.py
+|   |   `-- loggers.py
+|   |-- search.py
+|   |-- stats
+|   |   `-- basic_stats.py
+|   `-- visualizations
+|       |-- mitre.py
+|       |-- tactics_heatmap.py
+|       `-- tactics_radar.py
+|-- to_add.csv
+|-- z_whole_code_dump.sh
+`-- zz_whole_code_dump.txt
+
+7 directories, 37 files
+
+===== FILE DUMP =====
+===== FILE: ./config.py =====
+DB_PATH = "local.db"
+CSV_PATH = "data.csv"
+MODEL_ID = "sentence-transformers/all-mpnet-base-v2"
+
+
+# List of DB files we manage/reset during development
+DB_FILES = ["local.db"]
+
+# ? Must map to your CSV columns
+CSV_COLUMN_MAP = {
+    # Mandatory mappings
+    "unique_id_mandatory": "config_id",  # Primary key
+    "name_mandatory": "config_name",  # Human-readable name/title
+    "description_mandatory": "config_desc",  # Description/details
+    "status_mandatory": "status",  # Status of the record
+    # Optional mappings
+    "settings_optional": "config_settings",  # Raw settings string
+    "mitre_tactic_optional": "mitre_tactic",  # MITRE tactic(s)
+    "mitre_technique_optional": "mitre_technique",  # MITRE technique(s)
+}
+
+CSV_EMBEDDING_COLUMN_MAP = {
+    "name_mandatory": "config_name",
+    "description_mandatory": "config_desc",
+    "settings_optional": "config_settings",
+}
+
+
+===== FILE: ./data.csv =====
+config_id,config_name,config_desc,config_settings,status,mitre_tactic,mitre_technique
+CONF-1,Enforce strong password policy,Require complex passwords with minimum length and history enforcement,HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\MinimumPasswordLength=14; PasswordComplexity=1; PasswordHistorySize=24,active,Credential Access,T1110.001 - Password Guessing
+CONF-2,Disable legacy SMB1,Prevent use of deprecated SMBv1 protocol to mitigate known vulnerabilities,HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters\SMB1=0; HKLM\SYSTEM\CurrentControlSet\Services\mrxsmb10\Start=4,active,Lateral Movement,T1021.002 - SMB/Windows Admin Shares
+CONF-3,Harden RDP encryption,"Force TLS, require NLA, and set minimum encryption level for Remote Desktop",HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp\SecurityLayer=2; UserAuthentication=1; MinEncryptionLevel=3,active,Initial Access,T1133 - External Remote Services
+CONF-4,Disable guest account,Ensure built-in Guest account is disabled to reduce anonymous access,HKLM\SAM\SAM\Domains\Account\Users\000001F5\F=0x00000211 (disabled),retired,Credential Access,T1078.001 - Local Accounts
+CONF-5,Enable Windows Defender real-time protection,Turn on real-time protection and cloud-delivered protection,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection\DisableRealtimeMonitoring=0; SpynetReporting=2; SubmitSamplesConsent=1,draft,Defense Evasion,T1562.001 - Disable or Modify Tools
+CONF-6,Disable autorun for all drives,Prevent automatic execution of removable media to reduce malware spread,HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer\NoDriveTypeAutoRun=255,active,Initial Access,T1091 - Replication Through Removable Media
+CONF-7,Enforce screen lock timeout,Lock session after inactivity to protect unattended systems,HKCU\Control Panel\Desktop\ScreenSaveActive=1; ScreenSaveTimeOut=900; ScreenSaverIsSecure=1,active,Defense Evasion,T1078 - Valid Accounts
+CONF-8,Disable LM and NTLMv1,Enforce NTLMv2 or higher to improve authentication security,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\LmCompatibilityLevel=5,active,Credential Access,T1556.002 - Domain Controller Authentication
+CONF-9,Enable audit process creation logging,Record detailed command-line arguments for security investigations,HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit\ProcessCreationIncludeCmdLine_Enabled=1,active,Discovery,T1057 - Process Discovery
+CONF-10,Restrict anonymous SID enumeration,Prevent anonymous users from enumerating accounts,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\RestrictAnonymousSAM=1,active,Discovery,T1087.001 - Local Account Discovery
+CONF-11,Disable insecure WinHTTP AutoProxy service,Stop WPAD-based proxy auto-discovery to reduce MITM risk,HKLM\SYSTEM\CurrentControlSet\Services\WinHttpAutoProxySvc\Start=4,retired,Command and Control,T1071.001 - Web Protocols
+CONF-12,Configure Windows Firewall for inbound RDP,Allow inbound RDP only from trusted IP ranges,HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\DomainProfile\AuthorizedApplications\List\RDP-Tcp=AllowFrom:10.0.0.0/24,active,Initial Access,T1133 - External Remote Services
+CONF-13,Enable LSASS protection,Run LSASS as a protected process to mitigate credential theft,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL=1,active,Credential Access,T1003.001 - LSASS Memory
+CONF-14,Disable storage of LAN Manager hash,Prevent storing LM hashes in SAM database,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\NoLMHash=1,active,Credential Access,T1003.001 - LSASS Memory
+CONF-15,Force secure channel signing,Require signed communications for domain joins and authentication,HKLM\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters\SignSecureChannel=1,active,Credential Access,T1557.001 - LLMNR/NBT-NS Poisoning and Relay
+CONF-16,Enable Controlled Folder Access,Protect sensitive folders from ransomware and untrusted applications,HKLM\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Controlled Folder Access\EnableControlledFolderAccess=1,active,Impact,T1486 - Data Encrypted for Impact
+CONF-17,Enable Attack Surface Reduction rules,Block Office child processes and other high-risk behaviors,HKLM\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\ASR\Rules\D4F940AB-401B-4EFC-AADC-AD5F3C50688A=1; 75668C1F-73B5-4CF0-BB93-3ECF5CB7CC84=1,active,Execution,T1204.002 - Malicious File
+CONF-18,Enable network protection,Block outbound connections to malicious domains,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Windows Defender Exploit Guard\Network Protection\EnableNetworkProtection=1,active,Command and Control,T1071.001 - Web Protocols
+CONF-19,Enable SmartScreen for Microsoft Edge,Block unverified or malicious websites and downloads,HKLM\SOFTWARE\Policies\Microsoft\MicrosoftEdge\PhishingFilter\EnabledV9=1,active,Initial Access,T1189 - Drive-by Compromise
+CONF-20,Enable SmartScreen for Explorer,Check downloaded files against Microsoft reputation service,HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\SmartScreenEnabled=RequireAdmin,active,Initial Access,T1189 - Drive-by Compromise
+CONF-21,Enable Defender cloud-delivered protection,Leverage Microsoft cloud intelligence for faster threat detection,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet\SpynetReporting=2,active,Command and Control,T1071.001 - Web Protocols
+CONF-22,Enable automatic sample submission,Automatically submit suspicious files for analysis,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet\SubmitSamplesConsent=1,active,Collection,T1119 - Automated Collection
+CONF-23,Enable PUA protection,Block potentially unwanted applications,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\PUAProtection=1,active,Execution,T1204.002 - Malicious File
+CONF-24,Enable Defender Exploit Guard exploit protection,Enforce system-wide and per-process exploit mitigation settings,HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Kernel\MitigationOptions=0x1000000000000,active,Execution,T1204.002 - Malicious File
+CONF-25,Enable script scanning,Scan scripts for malicious content before execution,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection\DisableScriptScanning=0,active,Execution,T1059.005 - Visual Basic
+CONF-26,Enable removable drive scanning,Scan removable media during full scan and on insertion,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Scan\DisableRemovableDriveScanning=0,active,Collection,T1005 - Data from Local System
+CONF-27,Enable email scanning,Scan email messages and attachments for malicious content,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Scan\DisableEmailScanning=0,active,Collection,T1114.002 - Remote Email Collection
+CONF-28,Enable behavior monitoring,Detect and block suspicious process and memory activity,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection\DisableBehaviorMonitoring=0,active,Execution,T1204.002 - Malicious File
+CONF-29,Enable early launch antimalware,Ensure only trusted drivers load during boot,HKLM\SYSTEM\CurrentControlSet\Policies\EarlyLaunch\DriverLoadPolicy=1,active,Defense Evasion,T1547.001 - Registry Run Keys / Startup Folder
+CONF-30,Enable Secure Boot verification,Prevent bootkits and rootkits from loading at startup,HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State=1,active,Defense Evasion,T1542.003 - Bootkit
+CONF-31,Disable Windows Script Host,Prevents VBScript and JScript execution,HKLM\SOFTWARE\Microsoft\Windows Script Host\Settings\Enabled=0,active,,
+CONF-32,Limit blank password use,Restricts blank password use to console logon only,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\LimitBlankPasswordUse=1,active,,
+CONF-33,Disable Remote Registry service,Prevents remote connections to the Windows Registry,HKLM\SYSTEM\CurrentControlSet\Services\RemoteRegistry\Start=4,active,,
+CONF-34,Restrict Control Panel access,Blocks access to Control Panel and PC settings,HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer\NoControlPanel=1,active,,
+CONF-35,Disable location services,Turns off Windows location service,HKLM\SYSTEM\CurrentControlSet\Services\lfsvc\Start=4,active,,
+
+===== FILE: ./main_mcp_server.py =====
+from fastmcp import FastMCP
+import mcp_tools.db_search as db_search
+import mcp_tools.db_crud as db_crud
+import mcp_tools.mitre_visualize as mitre_visualize
+import mcp_tools.show_stats as show_stats
+
+mcp = FastMCP("POC Policy Helper")
+
+# Mount the sub-server's mcp instance
+mcp.mount(db_search.mcp)
+mcp.mount(db_crud.mcp)
+mcp.mount(mitre_visualize.mcp)
+mcp.mount(show_stats.mcp)
+
+if __name__ == "__main__":
+    mcp.run(transport="http", host="127.0.0.1", port=11111)
+
+
+===== FILE: ./main_reset.py =====
+from src.db.db_reset import reset_dbs
+from src.db.db_init import init_all
+from src.ingest import ingest
+
+if __name__ == "__main__":
+    print("[*] Resetting databases and output directory...")
+    reset_dbs(clear_output=True)  # uses default DB_FILES/DB_PATH
+    print("[*] Initializing schema and logging...")
+    init_all(include_observability=True)
+    print("[*] Starting data ingestion...")
+    ingest()
+    print("[+] Database reset, initialized, and ingested.")
+
+
+===== FILE: ./mcp_tools/db_crud.py =====
+from fastmcp import FastMCP
+from typing import Dict, Any, Optional
+
+from src.db.db_filters import update_mitre_fields
+from src.observability.loggers import log_llm_action
+from src.db.schema_map import pk_field
+from src.db.db_paired_ops import (
+    insert_config_with_embedding,
+    update_config_with_embedding,
+)
+
+mcp = FastMCP("Configuration Settings CRUD Operations")
+
+
+@mcp.tool()
+def insert_config(
+    data: Dict[str, Any],
+    reason: str,
+    request_id: Optional[str] = None,
+) -> str:
+    """
+    Insert a new configuration record into the `configs` table **and**
+    generate an embedding for the record in `vec_configs`.
+
+    This is a paired-table operation — both the main configs table and
+    the vector table will be updated.
+
+    Expected `data` keys (all required):
+      - config_id (str): Unique ID for the configuration (e.g., "CONF-1").
+      - config_name (str): Name/title of the configuration policy.
+      - config_desc (str): Detailed description of the configuration policy.
+      - config_settings (str): Actual settings (e.g., registry keys, policy values).
+      - status (str): Status of the configuration ("active", "retired", "draft", "rejected").
+
+    Parameters:
+      - reason (str): Short, audit-ready explanation for adding the configuration.
+      - request_id (str, optional): Correlation ID for tracing.
+
+    Returns:
+        str: Confirmation message indicating successful insert into both tables.
+
+    Notes:
+        - If `config_id` already exists, this will fail unless you run an update.
+        - Always provide a `reason` for traceability.
+        - This operation logs to `llm_action_log` as a non-idempotent LLM action.
+    """
+    pk_col = pk_field()
+    pk_val = data.get(pk_col, f"<missing-{pk_col}>")
+
+    log_llm_action(
+        tool="insert_config",
+        pk={pk_col: pk_val},
+        reason=reason,
+        request_id=request_id,
+        actor="llm",
+    )
+
+    insert_config_with_embedding(data)
+    return f"Inserted {pk_col}={pk_val} into configs and vec_configs."
+
+
+@mcp.tool()
+def update_config(
+    config_id: str,
+    updates: Dict[str, Any],
+    reason: Optional[str] = None,
+    request_id: Optional[str] = None,
+) -> str:
+    """
+    Update one or more fields for an existing configuration in the `configs` table.
+    If any embedding-relevant fields change (`config_name`, `config_desc`, `config_settings`),
+    the corresponding embedding in `vec_configs` is also updated.
+
+    Parameters:
+      - config_id (str): Unique ID of the configuration to update.
+      - updates (dict): Key-value pairs of columns to update.
+      - reason (str, optional): Short audit-ready reason for the update.
+      - request_id (str, optional): Correlation ID for tracing.
+
+    Allowed update keys:
+      - config_name
+      - config_desc
+      - config_settings
+      - status
+
+    Returns:
+        str: Confirmation message indicating which fields were updated.
+
+    Notes:
+        - `config_id` itself cannot be changed.
+        - If `updates` is empty, no changes are made.
+        - This operation logs to `llm_action_log` as a non-idempotent LLM action.
+    """
+    pk_col = pk_field()
+
+    log_llm_action(
+        tool="update_config",
+        pk={pk_col: config_id},
+        reason=reason,
+        request_id=request_id,
+        actor="llm",
+    )
+
+    if not updates:
+        return "No fields provided to update."
+
+    update_config_with_embedding(config_id, updates)
+    return f"Updated {pk_col}={config_id} with fields {list(updates.keys())}."
+
+
+@mcp.tool()
+def update_mitre_config(
+    config_id: str,
+    reason: str,
+    mitre_tactic: Optional[str] = None,
+    mitre_technique: Optional[str] = None,
+    request_id: Optional[str] = None,
+) -> str:
+    """
+    Update MITRE ATT&CK mapping fields (`mitre_tactic`, `mitre_technique`) for a configuration.
+    This does **not** trigger embedding updates.
+
+    Parameters:
+      - config_id (str): Unique ID of the configuration to update.
+      - reason (str): Short audit-ready reason for the update.
+      - mitre_tactic (str, optional): MITRE tactic name(s) (no IDs).
+      - mitre_technique (str, optional): MITRE technique(s) in `Txxxx - Name` format.
+      - request_id (str, optional): Correlation ID for tracing.
+
+    Returns:
+        str: Confirmation message indicating MITRE fields were updated.
+
+    Notes:
+        - Tactics must be names only (e.g., "Defense Evasion"), not IDs.
+        - Techniques must start with a `T` followed by digits (and optional `.xxx`),
+          followed by `" - "` and the technique/sub-technique name.
+        - This operation logs to `llm_action_log` as a non-idempotent LLM action.
+    """
+    pk_col = pk_field()
+
+    log_llm_action(
+        tool="update_mitre_config",
+        pk={pk_col: config_id},
+        reason=reason,
+        request_id=request_id,
+        actor="llm",
+    )
+
+    update_mitre_fields(config_id, mitre_tactic, mitre_technique)
+    return f"Updated MITRE fields for {pk_col}={config_id}"
+
+
+===== FILE: ./mcp_tools/db_search.py =====
+from fastmcp import FastMCP
+from typing import List, Dict, Any
+from src.search import semantic_search
+from src.db.db_filters import get_configs_missing_mitre
+
+mcp = FastMCP("Current System Configuration Settings Search")
+
+
+@mcp.tool()
+def semantic_search_configs(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    """
+    Perform a semantic search across all stored configuration settings.
+
+    Args:
+        query (str): Natural-language or keyword search query.
+        top_k (int, optional): Max number of matching records to return.
+
+    Returns:
+        List[Dict[str, Any]]: Matching records with similarity scores.
+    """
+    return semantic_search(query=query, top_k=top_k)
+
+
+@mcp.tool()
+def semantic_search_with_filter(
+    query: str, top_k: int = 5, status: str = "active"
+) -> List[Dict[str, Any]]:
+    """
+    Semantic search with an optional status filter.
+
+    Args:
+        query (str): Natural-language query.
+        top_k (int, optional): Max number of results to return.
+        status (str, optional): Filter by config status.
+
+    Returns:
+        List[Dict[str, Any]]: Filtered matching records with similarity scores.
+    """
+    return semantic_search(query=query, top_k=top_k, status=status)
+
+
+@mcp.tool()
+def get_missing_records_without_mitre_attack_info() -> list:
+    """
+    Retrieve configs missing MITRE tactic or technique mapping.
+
+    Returns:
+        list: Records with empty MITRE tactic/technique fields.
+    """
+    rows = get_configs_missing_mitre()
+    return [dict(row) for row in rows]
+
+
+===== FILE: ./mcp_tools/mitre_visualize.py =====
+from fastmcp import FastMCP
+from typing import Annotated
+from pydantic import Field
+from src.visualizations.tactics_heatmap import build_tactics_heatmap_png
+from src.visualizations.tactics_radar import build_tactics_radar_png
+
+
+mcp = FastMCP("MITRE Visualizations")
+
+
+@mcp.tool()
+def tactics_heatmap_png(no_input_required: str) -> str:
+    """
+    Generate a MITRE ATT&CK tactics coverage heatmap (Seaborn static PNG)
+    and return the PNG file path.
+
+    Args:
+        blank (str, optional): Dummy param to absorb bad clients that send {"": ""}.
+                               Ignored by the tool.
+    Returns:
+        str: Path to the generated PNG file.
+    """
+    return build_tactics_heatmap_png()
+
+
+@mcp.tool()
+def tactics_radar_png(no_input_required: str) -> str:
+    """
+    Generate a MITRE ATT&CK tactics coverage radar chart (dark mode PNG)
+    and return the PNG file path.
+    """
+    return build_tactics_radar_png()
+
+
+===== FILE: ./mcp_tools/show_stats.py =====
+from fastmcp import FastMCP
+from src.stats.basic_stats import build_basic_stats_json, build_recent_changes_json
+
+mcp = FastMCP("Configuration Settings Stats")
+
+
+@mcp.tool()
+def get_basic_stats_json() -> dict:
+    """Return baseline statistics in JSON form."""
+    return build_basic_stats_json()
+
+
+@mcp.tool()
+def get_recent_changes_json(days: int = 30) -> dict:
+    """Return recent changes in JSON form."""
+    return build_recent_changes_json(days)
+
+
+@mcp.tool()
+def get_combined_stats(days: int = 30) -> dict:
+    """
+    Return both basic stats and recent changes in one JSON object.
+    Useful for prompts like:
+    'tell me the basic stats and recent changes last 30 days in a simple report'
+    """
+    return {
+        "basic_stats": build_basic_stats_json(),
+        "recent_changes": build_recent_changes_json(days),
+    }
+
+
+===== FILE: ./Pipfile =====
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+sqlite-vec = "*"
+sentence-transformers = "*"
+pandas = "*"
+fastmcp = "*"
+plotly = "*"
+kaleido = "*"
+seaborn = "*"
+matplotlib = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.11"
+
+
+===== FILE: ./prompt_auditor_qns.md =====
+You are a cybersecurity specialist who is an expert in Windows Server security baselines.
+
+The auditor has provided the following combined control statement:
+"All Windows servers must have endpoint protections in place, administrative accounts must use strong authentication and be safeguarded against credential theft, and all remote desktop connections must be securely configured and encrypted."
+
+Your task:
+
+1. Break down the combined control statement into its distinct requirements.
+2. For each requirement, use the results returned from the semantic search tool configured to search only ACTIVE configuration settings (matching existing CONF-\* records) to select the 2–3 most relevant configuration settings.
+3. For each requirement, produce a table with the columns:
+    - Config ID
+    - Config Name
+    - Justification (1–3 sentences explaining how it supports the requirement, in professional audit-ready language)
+4. Only use information from the retrieved ACTIVE configuration records — do not fabricate settings or include retired/draft configurations.
+5. Output one table per requirement, and label each table with the requirement text.
+
+Format:
+Requirement: <requirement text>
+| Config ID | Config Name | Justification |
+|-----------|-------------|---------------|
+| CONF-XX | <name> | <justification> |
+
+
+===== FILE: ./prompt_mitre_enrichment.md =====
+# Prompt for multiple records:
+
+You are a cybersecurity specialist with deep expertise in security controls and the MITRE ATT&CK Enterprise framework.
+
+Instructions:
+
+1. Call get_missing_records_without_mitre_attack_info with {} to get one record without MITRE fields.
+2. If no record is returned, stop immediately.
+3. Decide the correct MITRE tactic(s) (name only) and technique(s) (ID + name).
+4. Write a short audit reason for your choice.
+5. Call update_mitre_config with only:
+    - config_id
+    - reason
+    - mitre_tactic
+    - mitre_technique
+6. Output a single table row with:
+    - config_id
+    - mitre_tactic
+    - mitre_technique
+    - reason
+7. Repeat from step 1 until no record is returned.
+
+Output format:
+| config_id | mitre_tactic | mitre_technique | reason |
+|-----------|--------------|-----------------|--------|
+
+Rules:
+
+-   Do not output anything except the tool calls and the table rows.
+-   Make exactly one get_missing_records_without_mitre_attack_info call and one update_mitre_config call per record.
+-   reason is mandatory and must be concise and audit-ready.
+
+# Prompt - to only do one record
+
+You are a cybersecurity specialist with deep expertise in security controls and the MITRE ATT&CK Enterprise framework.
+
+Instructions:
+
+1. Call get_missing_records_without_mitre_attack_info with {} to get one record without MITRE fields.
+2. Decide the correct MITRE tactic(s) (name only) and technique(s) (ID + name).
+3. Write a short audit reason for your choice.
+4. Call update_mitre_config with only:
+    - config_id
+    - reason
+    - mitre_tactic
+    - mitre_technique
+5. Output a single table row with:
+    - config_id
+    - mitre_tactic
+    - mitre_technique
+    - reason
+
+Output format:
+| config_id | mitre_tactic | mitre_technique | reason |
+|-----------|--------------|-----------------|--------|
+
+Rules:
+
+-   Do not output anything except the tool calls and the table.
+-   Make exactly one get_missing_records_without_mitre_attack_info call in step 1 and one update_mitre_config call in step 4.
+-   reason is mandatory and must be concise and audit-ready.
+
+
+===== FILE: ./prompt_to_add.md =====
+# Attachment
+
+`to_add.csv`
+
+# Prompt for multple records:
+
+You are a cybersecurity specialist who is an expert in Windows Server security baseline hardening.
+
+New configuration settings (CSV format):
+config_id,config_name,config_desc,config_settings,status,remarks
+CAND-1,Enable PUA protection,Block potentially unwanted applications,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\PUAProtection=1,active,""
+CAND-4,Force dark mode UI,Set system and apps to dark theme for user preference,HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme=0; SystemUsesLightTheme=0,draft,""
+CAND-6,Enable Credential Guard,Use VBS to isolate secrets and protect credentials,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\LsaCfgFlags=1,active,""
+
+Instructions:
+
+1. Using the semantic search tool, search for existing configuration settings that match the new configuration's config_name and/or config_desc.
+2. If a match is found (functionally equivalent setting already exists), do not insert it. Include the matching existing config_id in the decision_reason.
+3. Determine if the new configuration is security-related. A security-related setting is one that directly mitigates threats, improves authentication, hardens OS configuration, or prevents exploitation. Cosmetic or user-preference settings are not considered security-related.
+4. Insert the new configuration only if:
+    - It is security-related, AND
+    - No existing equivalent configuration is found in the baseline.
+5. Output all records from the input in a single table with the following columns:
+    - config_id
+    - config_name
+    - decision_reason (brief, audit-ready explanation of why it was added or not added)
+
+Output format:
+| config_id | config_name | decision_reason |
+|-----------|-------------|-----------------|
+| CAND-<Number> | <name> | <reason> |
+
+# Prompt for single:
+
+You are a cybersecurity specialist who is an expert in Windows Server security baseline hardening.
+
+New configuration settings (CSV format):
+config_id,config_name,config_desc,config_settings,status,remarks
+CAND-6,Enable Credential Guard,Use VBS to isolate secrets and protect credentials,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\LsaCfgFlags=1,active,""
+
+Instructions:
+
+1. Using the semantic search tool, search for existing configuration settings that match the new configuration's config_name and/or config_desc.
+2. If a match is found (functionally equivalent setting already exists), do not insert it.
+3. Determine if the new configuration is security-related. If it is not security-related, do not insert it.
+4. Insert the new configuration only if:
+    - It is security-related, AND
+    - No existing equivalent configuration is found in the baseline.
+5. For each new configuration, explain your decision in a table with the following columns:
+    - config_id
+    - config_name
+    - decision_reason (brief, audit-ready explanation of why it was added or not added)
+
+Output format:
+| config_id | config_name | decision_reason |
+|-----------|-----------------------|-----------------|
+| CAND-<Number> | Enable Credential Guard | <reason> |
+
+# Record choices
+
+CAND-1,Enable PUA protection,Block potentially unwanted applications,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\PUAProtection=1,active,""
+
+CAND-4,Force dark mode UI,Set system and apps to dark theme for user preference,HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme=0; SystemUsesLightTheme=0,draft,""
+
+CAND-6,Enable Credential Guard,Use VBS to isolate secrets and protect credentials,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\LsaCfgFlags=1,active,""
+
+
+===== FILE: ./src/db/db_embeddings.py =====
+import numpy as np
+from sqlite_vec import serialize_float32
+from src.model_loader import get_model
+from src.db.db_init import get_db
+from config import DB_PATH
+
+
+def insert_embedding(config_id: str, text: str, db_path: str = DB_PATH) -> None:
+    model = get_model()
+    emb = model.encode([text], convert_to_numpy=True, normalize_embeddings=True)[0]
+    with get_db(db_path) as conn:
+        conn.execute(
+            "INSERT INTO vec_configs(config_id, embedding) VALUES (?, ?)",
+            (config_id, serialize_float32(emb.tolist())),
+        )
+        conn.commit()
+
+
+def update_embedding(config_id: str, text: str, db_path: str = DB_PATH) -> None:
+    model = get_model()
+    emb = model.encode([text], convert_to_numpy=True, normalize_embeddings=True)[0]
+    with get_db(db_path) as conn:
+        conn.execute(
+            "UPDATE vec_configs SET embedding = ? WHERE config_id = ?",
+            (serialize_float32(emb.tolist()), config_id),
+        )
+        conn.commit()
+
+
+===== FILE: ./src/db/db_filters.py =====
+import sqlite3
+from typing import List, Optional
+
+from config import DB_PATH, CSV_COLUMN_MAP
+from src.db.db_operations import fetch_all, update
+from src.db.schema_map import pk_field
+
+
+def get_configs_missing_mitre(db_path: str = DB_PATH) -> List[sqlite3.Row]:
+    """
+    Retrieve configuration records where mitre_tactic or mitre_technique are empty.
+    Useful for finding rows that still need enrichment.
+    """
+    mt_col = CSV_COLUMN_MAP["mitre_tactic_optional"]
+    mtech_col = CSV_COLUMN_MAP["mitre_technique_optional"]
+
+    sql = f"""
+        SELECT *
+        FROM configs
+        WHERE ({mt_col} IS NULL OR TRIM({mt_col}) = '')
+           OR ({mtech_col} IS NULL OR TRIM({mtech_col}) = '')
+    """
+    return fetch_all(sql, db_path=db_path)
+
+
+def update_mitre_fields(
+    config_id: str,
+    mitre_tactic: Optional[str] = None,
+    mitre_technique: Optional[str] = None,
+    db_path: str = DB_PATH,
+) -> None:
+    """Update exactly one tactic and/or one technique for a given config_id."""
+    fields = {}
+    if mitre_tactic is not None:
+        mt = mitre_tactic.strip()
+        if mt:
+            fields[CSV_COLUMN_MAP["mitre_tactic_optional"]] = mt
+    if mitre_technique is not None:
+        mtech = mitre_technique.strip()
+        if mtech:
+            fields[CSV_COLUMN_MAP["mitre_technique_optional"]] = mtech
+    if not fields:
+        return
+
+    update(
+        "configs",
+        fields,
+        f"{CSV_COLUMN_MAP['unique_id_mandatory']} = ?",
+        (config_id,),
+        db_path=db_path,
+    )
+
+
+def get_configs_core_fields(db_path: str = DB_PATH) -> List[sqlite3.Row]:
+    """
+    Return the core columns used by visualizations.
+    """
+    id_col = CSV_COLUMN_MAP["unique_id_mandatory"]
+    name_col = CSV_COLUMN_MAP["name_mandatory"]
+    desc_col = CSV_COLUMN_MAP["description_mandatory"]
+    settings_col = CSV_COLUMN_MAP["settings_optional"]
+    status_col = CSV_COLUMN_MAP["status_mandatory"]
+    mt_col = CSV_COLUMN_MAP["mitre_tactic_optional"]
+    mtech_col = CSV_COLUMN_MAP["mitre_technique_optional"]
+
+    sql = f"""
+        SELECT
+            {id_col},
+            {name_col},
+            {desc_col},
+            {settings_col},
+            {status_col},
+            COALESCE({mt_col}, '')    AS {mt_col},
+            COALESCE({mtech_col}, '') AS {mtech_col}
+        FROM configs
+    """
+    return fetch_all(sql, db_path=db_path)
+
+
+===== FILE: ./src/db/db_init.py =====
+# src/db/db_init.py
+import sqlite3
+import sqlite_vec
+from typing import Optional
+from config import DB_PATH, MODEL_ID
+from sentence_transformers import SentenceTransformer
+
+
+def get_db(db_path: str = DB_PATH) -> sqlite3.Connection:
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    conn.enable_load_extension(True)
+    sqlite_vec.load(conn)
+    conn.enable_load_extension(False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def get_embed_dim() -> int:
+    """Load the configured SBERT model and return embedding dimension."""
+    model = SentenceTransformer(MODEL_ID)
+    # Small dummy encode to determine dimension
+    return model.encode(["_"], convert_to_numpy=True, normalize_embeddings=True)[
+        0
+    ].shape[0]
+
+
+def init_core_schema(conn: sqlite3.Connection, *, embed_dim: int) -> None:
+    conn.execute("DROP TABLE IF EXISTS configs;")
+    conn.execute("DROP TABLE IF EXISTS vec_configs;")
+    conn.execute(
+        """
+        CREATE TABLE configs(
+            config_id TEXT PRIMARY KEY,
+            config_name TEXT NOT NULL,
+            config_desc TEXT NOT NULL,
+            config_settings TEXT NOT NULL,
+            status TEXT NOT NULL,
+            mitre_tactic TEXT NOT NULL DEFAULT '',
+            mitre_technique TEXT NOT NULL DEFAULT ''
+        );
+    """
+    )
+    conn.execute(
+        f"""
+        CREATE VIRTUAL TABLE vec_configs USING vec0(
+            config_id TEXT PRIMARY KEY,
+            embedding float[{embed_dim}]
+        );
+    """
+    )
+
+
+def init_observability(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS llm_action_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT NOT NULL,
+            tool TEXT NOT NULL,
+            pk_json TEXT NOT NULL,
+            reason TEXT,
+            actor TEXT NOT NULL DEFAULT 'llm',
+            request_id TEXT
+        );
+    """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_llm_ts ON llm_action_log(ts);")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_llm_tool ON llm_action_log(tool);")
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS db_op_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT NOT NULL,
+            action TEXT NOT NULL,
+            table_name TEXT NOT NULL,
+            pk_json TEXT NOT NULL,
+            rows_affected INTEGER NOT NULL,
+            success INTEGER NOT NULL,
+            actor TEXT,
+            tool TEXT,
+            error TEXT
+        );
+    """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_db_ts ON db_op_log(ts);")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_db_action ON db_op_log(action);")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_db_table ON db_op_log(table_name);")
+
+
+def init_all(*, include_observability: bool = True) -> None:
+    """Initialize DB with core + optional observability schema, auto-resolving embed_dim."""
+    embed_dim = get_embed_dim()
+    with get_db(DB_PATH) as conn:
+        init_core_schema(conn, embed_dim=embed_dim)
+        if include_observability:
+            init_observability(conn)
+        conn.commit()
+
+
+===== FILE: ./src/db/db_operations.py =====
+import sqlite3
+from typing import Any, List, Tuple, Optional
+
+from config import DB_PATH
+from src.db.db_init import get_db
+from src.db.schema_map import pk_field
+
+
+def execute_query(
+    query: str, params: Tuple = (), commit: bool = False, db_path: str = DB_PATH
+) -> int:
+    """Execute INSERT/UPDATE/DELETE without returning results. Returns affected row count."""
+    with get_db(db_path) as conn:
+        cur = conn.execute(query, params)
+        if commit:
+            conn.commit()
+        return cur.rowcount
+
+
+def fetch_one(
+    query: str, params: Tuple = (), db_path: str = DB_PATH
+) -> Optional[sqlite3.Row]:
+    """Fetch a single row."""
+    with get_db(db_path) as conn:
+        return conn.execute(query, params).fetchone()
+
+
+def fetch_all(
+    query: str, params: Tuple = (), db_path: str = DB_PATH
+) -> List[sqlite3.Row]:
+    """Fetch multiple rows."""
+    with get_db(db_path) as conn:
+        return conn.execute(query, params).fetchall()
+
+
+# --- CRUD helpers ---
+def insert(table: str, data: dict, db_path: str = DB_PATH) -> int:
+    if not data:
+        raise ValueError("insert() received empty data dict")
+    cols = ", ".join(data.keys())
+    placeholders = ", ".join("?" for _ in data)
+    sql = f"INSERT INTO {table} ({cols}) VALUES ({placeholders})"
+    return execute_query(sql, tuple(data.values()), commit=True, db_path=db_path)
+
+
+def update(
+    table: str, data: dict, where: str, params: Tuple, db_path: str = DB_PATH
+) -> int:
+    if not data:
+        return 0  # nothing to update
+    set_clause = ", ".join(f"{col}=?" for col in data.keys())
+    sql = f"UPDATE {table} SET {set_clause} WHERE {where}"
+    return execute_query(
+        sql, tuple(data.values()) + params, commit=True, db_path=db_path
+    )
+
+
+def delete(table: str, where: str, params: Tuple, db_path: str = DB_PATH) -> int:
+    sql = f"DELETE FROM {table} WHERE {where}"
+    return execute_query(sql, params, commit=True, db_path=db_path)
+
+
+def update_by_pk(table: str, pk_value: Any, data: dict, db_path: str = DB_PATH) -> int:
+    """
+    Update a single record in `table` by its primary key.
+    The primary key column name is determined via schema_map.pk_field().
+    """
+    pk_col = pk_field()
+    return update(
+        table, data, where=f"{pk_col} = ?", params=(pk_value,), db_path=db_path
+    )
+
+
+def delete_by_pk(table: str, pk_value: Any, db_path: str = DB_PATH) -> int:
+    """Delete a record by primary key using schema_map.pk_field()."""
+    pk_col = pk_field()
+    return delete(table, where=f"{pk_col} = ?", params=(pk_value,), db_path=db_path)
+
+
+===== FILE: ./src/db/db_paired_ops.py =====
+from config import CSV_COLUMN_MAP
+from src.db import db_operations
+from src.db.db_embeddings import insert_embedding, update_embedding
+
+
+def _build_embedding_text(data: dict) -> str:
+    """Combine fields into the text representation used for embeddings."""
+    return " | ".join(
+        [
+            str(data.get(CSV_COLUMN_MAP["name_mandatory"], "")),
+            str(data.get(CSV_COLUMN_MAP["description_mandatory"], "")),
+            str(data.get(CSV_COLUMN_MAP.get("settings_optional", ""), "")),
+        ]
+    )
+
+
+def insert_config_with_embedding(data: dict) -> None:
+    """
+    Insert into configs, then insert into vec_configs with embedding.
+    """
+    db_operations.insert("configs", data)
+    text = _build_embedding_text(data)
+    insert_embedding(data[CSV_COLUMN_MAP["unique_id_mandatory"]], text)
+
+
+def update_config_with_embedding(config_id: str, updates: dict) -> None:
+    """
+    Update configs, and re-embed if relevant fields changed.
+    """
+    pk_col = CSV_COLUMN_MAP["unique_id_mandatory"]
+    db_operations.update("configs", updates, where=f"{pk_col} = ?", params=(config_id,))
+
+    if any(
+        f in updates
+        for f in (
+            CSV_COLUMN_MAP["name_mandatory"],
+            CSV_COLUMN_MAP["description_mandatory"],
+            CSV_COLUMN_MAP.get("settings_optional", ""),
+        )
+    ):
+        text = _build_embedding_text(updates)
+        update_embedding(config_id, text)
+
+
+===== FILE: ./src/db/db_reset.py =====
+# src/db/db_reset.py
+from __future__ import annotations
+import os
+import shutil
+import sqlite3
+from typing import Callable, Iterable, Optional
+from config import DB_FILES, DB_PATH
+
+OUTPUT_DIR = "./output"
+
+
+def destroy_dbs(db_files: Optional[Iterable[str]] = None) -> None:
+    """
+    Delete the given SQLite database files (if present).
+    Default set comes from config.DB_FILES.
+    """
+    files = list(db_files) if db_files is not None else list(DB_FILES)
+    for path in files:
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+                print(f"[!] Deleted database: {path}")
+            else:
+                print(f"[!] No database file found at: {path}")
+        except Exception as e:
+            print(f"[x] Failed to delete {path}: {e}")
+
+
+def clear_output_dir(path: str = OUTPUT_DIR, recreate: bool = True) -> None:
+    if os.path.exists(path) and os.path.isdir(path):
+        try:
+            shutil.rmtree(path)
+            print(f"[!] Cleared output directory: {path}")
+        except Exception as e:
+            print(f"[x] Failed to clear output directory {path}: {e}")
+            return
+    else:
+        print(f"[!] No output directory found at: {path}")
+    if recreate:
+        try:
+            os.makedirs(path, exist_ok=True)
+            print(f"[+] Recreated output directory: {path}")
+        except Exception as e:
+            print(f"[x] Failed to recreate output directory {path}: {e}")
+
+
+def reset_dbs(
+    db_files: Optional[Iterable[str]] = None,
+    init_fn: Optional[Callable[[], None]] = None,
+    touch_if_no_init: bool = True,
+    clear_output: bool = True,
+) -> None:
+    """
+    Reset databases: destroy them, then optionally re-initialize.
+    Also clears output directory if requested.
+
+    - If `init_fn` is provided (e.g., `ingest`), it's called ONCE after destruction.
+    - If no `init_fn` is given and `touch_if_no_init` is True, create empty SQLite files.
+
+    Args:
+        db_files: DB files to manage (defaults to config.DB_FILES).
+        init_fn: a callable like `ingest` to rebuild schema/data.
+        touch_if_no_init: create empty SQLite files if no init function is provided.
+        clear_output: whether to clear the ./output directory as part of reset.
+    """
+    files = list(db_files) if db_files is not None else list(DB_FILES)
+
+    # 0) Clear output if requested
+    if clear_output:
+        clear_output_dir()
+
+    # 1) Nuke DBs
+    destroy_dbs(files)
+
+    # 2) Re-init
+    if init_fn is not None:
+        try:
+            init_fn()
+            print("[+] Initialization function executed.")
+        except Exception as e:
+            print(f"[x] Initialization function failed: {e}")
+    elif touch_if_no_init:
+        for path in files:
+            try:
+                conn = sqlite3.connect(path)
+                conn.close()
+                print(f"[+] Created empty SQLite file: {path}")
+            except Exception as e:
+                print(f"[x] Failed to create {path}: {e}")
+
+
+===== FILE: ./src/db/schema_map.py =====
+from config import CSV_COLUMN_MAP
+
+
+def pk_field() -> str:
+    """Return the DB primary key column name from CSV_COLUMN_MAP."""
+    return CSV_COLUMN_MAP["unique_id_mandatory"]
+
+
+===== FILE: ./src/ingest.py =====
+import pandas as pd
+import numpy as np
+from sqlite_vec import serialize_float32
+from config import DB_PATH, CSV_PATH, CSV_COLUMN_MAP, CSV_EMBEDDING_COLUMN_MAP
+from src.db.db_init import get_db
+from src.model_loader import get_model
+from sentence_transformers import SentenceTransformer
+
+
+def validate_mandatory_columns(df: pd.DataFrame) -> None:
+    """Ensure all mandatory columns from CSV_COLUMN_MAP exist in the CSV."""
+    missing = [
+        colname
+        for key, colname in CSV_COLUMN_MAP.items()
+        if key.endswith("_mandatory") and colname not in df.columns
+    ]
+    if missing:
+        raise ValueError(f"Missing mandatory CSV columns: {missing}")
+
+
+def embed_rows(df: pd.DataFrame, model: SentenceTransformer) -> np.ndarray:
+    parts = []
+    for key, colname in CSV_EMBEDDING_COLUMN_MAP.items():
+        if colname in df.columns:
+            parts.append(df[colname])
+        else:
+            parts.append(pd.Series([""] * len(df)))  # missing optional column
+    texts = (" | ".join(map(str, row)) for row in zip(*parts))
+    return model.encode(
+        list(texts), convert_to_numpy=True, normalize_embeddings=True
+    ).astype(np.float32)
+
+
+def ingest():
+    df = pd.read_csv(CSV_PATH, dtype=str).fillna("")
+
+    # Validate CSV structure
+    validate_mandatory_columns(df)
+
+    # Ensure optional columns exist
+    for opt_key in [k for k in CSV_COLUMN_MAP if k.endswith("_optional")]:
+        colname = CSV_COLUMN_MAP[opt_key]
+        if colname not in df.columns:
+            df[colname] = ""
+
+    conn = get_db(DB_PATH)
+    model = get_model()
+
+    embs = embed_rows(df, model)
+
+    # Prepare insert order according to DB schema, using mapped names
+    insert_cols = [
+        CSV_COLUMN_MAP["unique_id_mandatory"],
+        CSV_COLUMN_MAP["name_mandatory"],
+        CSV_COLUMN_MAP["description_mandatory"],
+        CSV_COLUMN_MAP.get("settings_optional", ""),
+        CSV_COLUMN_MAP["status_mandatory"],
+        CSV_COLUMN_MAP.get("mitre_tactic_optional", ""),
+        CSV_COLUMN_MAP.get("mitre_technique_optional", ""),
+    ]
+
+    conn.executemany(
+        """
+        INSERT INTO configs(
+          config_id, config_name, config_desc, config_settings, status, mitre_tactic, mitre_technique
+        ) VALUES (?, ?, ?, ?, ?, ?, ?);
+        """,
+        df[insert_cols].values.tolist(),
+    )
+
+    # Vector table uses the mapped unique ID
+    uid_col = CSV_COLUMN_MAP["unique_id_mandatory"]
+    conn.executemany(
+        """
+        INSERT INTO vec_configs(config_id, embedding)
+        VALUES (?, ?);
+        """,
+        [
+            (df.iloc[i][uid_col], serialize_float32(embs[i].tolist()))
+            for i in range(len(df))
+        ],
+    )
+
+    conn.commit()
+    print(f"[+] Ingested {len(df)} rows into fresh {DB_PATH} with embeddings.")
+
+
+===== FILE: ./src/model_loader.py =====
+from sentence_transformers import SentenceTransformer
+from config import MODEL_ID
+
+_model_instance: SentenceTransformer | None = None
+
+
+def get_model() -> SentenceTransformer:
+    """Load and cache the SBERT model so it's only initialized once."""
+    global _model_instance
+    if _model_instance is None:
+        _model_instance = SentenceTransformer(MODEL_ID)
+    return _model_instance
+
+
+===== FILE: ./src/observability/init_logging.py =====
+# src/observability/init_logging.py
+import sqlite3
+from config import DB_PATH
+
+
+def init_logging() -> None:
+    """Create minimal tables for LLM tool logs and DB operation logs."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        # 1) High-level LLM/MCP tool actions (non-idempotent only)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS llm_action_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts TEXT NOT NULL,              -- ISO timestamp
+                tool TEXT NOT NULL,            -- e.g., 'insert_config'
+                pk_json TEXT NOT NULL,         -- e.g., {"config_id":"CONF-1"}
+                reason TEXT,                   -- LLM justification (short)
+                actor TEXT NOT NULL DEFAULT 'llm',
+                request_id TEXT                -- optional correlation id
+            );
+        """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_llm_ts ON llm_action_log(ts);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_llm_tool ON llm_action_log(tool);")
+
+        # 2) Low-level DB operations (all origins)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS db_op_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts TEXT NOT NULL,
+                action TEXT NOT NULL,          -- insert | update | delete
+                table_name TEXT NOT NULL,      -- e.g., 'configs'
+                pk_json TEXT NOT NULL,
+                rows_affected INTEGER NOT NULL,
+                success INTEGER NOT NULL,      -- 1/0
+                actor TEXT,                    -- 'llm' | 'api' | 'human' | 'system'
+                tool TEXT,                     -- if known; e.g., 'insert_config' or 'api:POST /configs'
+                error TEXT                     -- nullable error message
+            );
+        """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_db_ts ON db_op_log(ts);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_db_action ON db_op_log(action);")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_db_table ON db_op_log(table_name);"
+        )
+        conn.commit()
+        print("[+] observability: llm_action_log & db_op_log ready.")
+    finally:
+        conn.close()
+
+
+===== FILE: ./src/observability/loggers.py =====
+# src/observability/writers.py
+import json
+import sqlite3
+from datetime import datetime
+from typing import Optional, Dict, Any, Union
+
+from config import DB_PATH, CSV_COLUMN_MAP
+
+
+def _now_iso() -> str:
+    # Local time with offset; ISO is easy to read and sort
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def _pk_to_json(pk: Union[str, Dict[str, Any]]) -> str:
+    """
+    Normalize primary key:
+      - If str, wrap with PK field from schema map: {"<pk_field>": "value"}
+      - If dict, use as-is
+    """
+    if isinstance(pk, str):
+        pk_field = CSV_COLUMN_MAP["unique_id_mandatory"]
+        pk = {pk_field: pk}
+    return json.dumps(pk, ensure_ascii=False)
+
+
+def log_llm_action(
+    *,
+    tool: str,  # e.g., "insert_config"
+    pk: Union[str, Dict[str, Any]],  # "CONF-1" or {"config_id":"CONF-1"}
+    reason: Optional[str] = None,  # short justification
+    actor: str = "llm",
+    request_id: Optional[str] = None
+) -> None:
+    """Log a single LLM/MCP tool action (non-idempotent only)."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute(
+            """
+            INSERT INTO llm_action_log (ts, tool, pk_json, reason, actor, request_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """,
+            (_now_iso(), tool, _pk_to_json(pk), reason, actor, request_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def log_db_op(
+    *,
+    action: str,  # "insert" | "update" | "delete"
+    table_name: str,  # e.g., "configs"
+    pk: Union[str, Dict[str, Any]],
+    rows_affected: int,
+    success: bool = True,
+    actor: Optional[str] = None,  # "llm" | "api" | "human" | "system"
+    tool: Optional[str] = None,
+    error: Optional[str] = None
+) -> None:
+    """Log a DB operation regardless of origin (MCP/API/CLI)."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute(
+            """
+            INSERT INTO db_op_log (ts, action, table_name, pk_json, rows_affected, success, actor, tool, error)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (
+                _now_iso(),
+                action,
+                table_name,
+                _pk_to_json(pk),
+                int(rows_affected),
+                1 if success else 0,
+                actor,
+                tool,
+                error,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+===== FILE: ./src/search.py =====
+from config import DB_PATH, CSV_COLUMN_MAP
+from sqlite_vec import serialize_float32
+import numpy as np
+from src.model_loader import get_model
+from src.db.db_init import get_db
+from src.db.schema_map import pk_field
+
+
+def semantic_search(
+    query: str, top_k: int = 5, db_path: str = DB_PATH, status: str | None = None
+):
+    """Return top-k rows as a list of dicts (for MCP use)."""
+    conn = get_db(db_path)
+    model = get_model()
+    q = model.encode([query], convert_to_numpy=True, normalize_embeddings=True)[
+        0
+    ].astype(np.float32)
+
+    pk = pk_field()
+    name_col = CSV_COLUMN_MAP["name_mandatory"]
+    desc_col = CSV_COLUMN_MAP["description_mandatory"]
+    settings_col = CSV_COLUMN_MAP["settings_optional"]
+    status_col = CSV_COLUMN_MAP["status_mandatory"]
+
+    sql = f"""
+        WITH knn AS (
+          SELECT {pk} AS pk, distance
+          FROM vec_configs
+          WHERE embedding MATCH ?
+            AND k = ?
+        )
+        SELECT c.{pk}, c.{name_col}, c.{desc_col}, c.{settings_col}, c.{status_col}, knn.distance
+        FROM knn
+        JOIN configs c ON c.{pk} = knn.pk
+    """
+    params = [serialize_float32(q.tolist()), top_k]
+
+    if status:
+        sql += f" WHERE c.{status_col} = ?"
+        params.append(status)
+
+    sql += " ORDER BY knn.distance ASC;"
+
+    rows = conn.execute(sql, params).fetchall()
+
+    return [
+        {
+            pk: cid,
+            name_col: name,
+            desc_col: desc,
+            settings_col: settings,
+            status_col: st,
+            "cosine_similarity": 1.0 - float(dist),
+        }
+        for (cid, name, desc, settings, st, dist) in rows
+    ]
+
+
+===== FILE: ./src/stats/basic_stats.py =====
+# src/stats/basic_stats.py
+from datetime import datetime, timedelta
+
+from config import DB_PATH, CSV_COLUMN_MAP
+from src.db.schema_map import pk_field
+from src.db.db_init import get_db
+
+
+def build_basic_stats_json() -> dict:
+    """Builds basic statistics about configuration settings in the DB."""
+    conn = get_db(DB_PATH)
+    cur = conn.cursor()
+
+    pk = pk_field()
+    status_col = CSV_COLUMN_MAP["status_mandatory"]
+
+    # Count all configs
+    total = cur.execute(f"SELECT COUNT({pk}) FROM configs").fetchone()[0]
+
+    # Count configs with both MITRE fields populated
+    mapped_mitre = cur.execute(
+        f"""
+        SELECT COUNT({pk}) FROM configs
+        WHERE TRIM(mitre_tactic) != '' AND TRIM(mitre_technique) != ''
+        """
+    ).fetchone()[0]
+
+    unmapped_mitre = total - mapped_mitre
+
+    # Status breakdown
+    status_counts = dict(
+        cur.execute(
+            f"SELECT {status_col}, COUNT(*) FROM configs GROUP BY {status_col}"
+        ).fetchall()
+    )
+
+    conn.close()
+
+    return {
+        "total_configs": total,
+        "mapped_mitre": mapped_mitre,
+        "mapped_percent": round((mapped_mitre / total) * 100, 2) if total else 0.0,
+        "unmapped_mitre": unmapped_mitre,
+        "unmapped_percent": round((unmapped_mitre / total) * 100, 2) if total else 0.0,
+        "status_breakdown": status_counts,
+    }
+
+
+def build_recent_changes_json(days: int = 30) -> dict:
+    """Builds statistics of LLM/MCP tool usage in the last N days."""
+    conn = get_db(DB_PATH)
+    cur = conn.cursor()
+
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat(timespec="seconds")
+    recent_rows = cur.execute(
+        """
+        SELECT tool, COUNT(*) as cnt
+        FROM llm_action_log
+        WHERE ts >= ?
+        GROUP BY tool
+        ORDER BY cnt DESC
+        """,
+        (cutoff,),
+    ).fetchall()
+
+    conn.close()
+
+    return {
+        "lookback_days": days,
+        "changes": [{"tool": tool, "count": cnt} for tool, cnt in recent_rows],
+    }
+
+
+===== FILE: ./src/visualizations/mitre.py =====
+from collections import Counter
+from typing import Any, Sequence
+from config import CSV_COLUMN_MAP
+
+MITRE_TACTICS = [
+    "Reconnaissance",
+    "Resource Development",
+    "Initial Access",
+    "Execution",
+    "Persistence",
+    "Privilege Escalation",
+    "Defense Evasion",
+    "Credential Access",
+    "Discovery",
+    "Lateral Movement",
+    "Collection",
+    "Command and Control",
+    "Exfiltration",
+    "Impact",
+]
+
+
+def split_tactics(value: str) -> list[str]:
+    """Split a tactics string into a normalized list of tactics."""
+    if not value:
+        return []
+    for sep in (";", "|"):
+        value = value.replace(sep, ",")
+    return [p.strip() for p in value.split(",") if p.strip()]
+
+
+def count_tactics(rows: Sequence[Any]) -> list[int]:
+    """Count the occurrences of each MITRE tactic in the given rows."""
+    tactics_field = CSV_COLUMN_MAP["mitre_tactic_optional"]
+    c = Counter()
+    for r in rows:
+        for t in split_tactics(r[tactics_field]):
+            if t in MITRE_TACTICS:
+                c[t] += 1
+    return [c.get(t, 0) for t in MITRE_TACTICS]
+
+
+===== FILE: ./src/visualizations/tactics_heatmap.py =====
+# src/visualizations/tactics_heatmap.py
+import os
+import plotly.io as pio
+import plotly.express as px
+from collections import Counter
+from typing import List
+from src.db.db_filters import get_configs_core_fields
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
+from src.visualizations.mitre import MITRE_TACTICS, split_tactics, count_tactics
+
+
+def build_tactics_heatmap_html(
+    out_path: str = "output/tactics_heatmap.html",
+) -> str:
+    """Build an interactive MITRE tactics heatmap and save as a self-contained HTML."""
+    rows = get_configs_core_fields()
+    counts = count_tactics(rows)
+
+    fig = px.imshow(
+        [counts],
+        x=MITRE_TACTICS,
+        y=["Coverage"],
+        text_auto=True,
+        aspect="auto",
+        labels=dict(x="MITRE ATT&CK Tactics", y="", color="#Configs"),
+    )
+    fig.update_layout(
+        title="MITRE ATT&CK Tactics Coverage (by # of Configs)",
+        width=1000,
+        height=320,
+        margin=dict(l=20, r=20, t=60, b=40),
+        xaxis=dict(tickangle=30),
+        coloraxis_showscale=True,
+    )
+
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    pio.write_html(fig, file=out_path, include_plotlyjs=True, full_html=True)
+    return out_path
+
+
+def build_tactics_heatmap_png(
+    out_path: str = "output/tactics_heatmap.png",
+) -> str:
+    from matplotlib.colors import LinearSegmentedColormap
+
+    rows = get_configs_core_fields()
+    counts = count_tactics(rows)
+
+    df = pd.DataFrame([counts], columns=MITRE_TACTICS, index=["Coverage"])
+
+    # Dark mode + cyan palette
+    radar_cyan_cmap = LinearSegmentedColormap.from_list(
+        "radar_cyan",
+        ["#0b0b0b", "#0e3a3a", "#00ffff"],  # dark → teal → cyan
+        N=256,
+    )
+
+    plt.figure(figsize=(12, 1.6), facecolor="#121212")
+    sns.set_theme(
+        style="ticks",
+        rc={
+            "axes.facecolor": "#121212",
+            "figure.facecolor": "#121212",
+            "axes.labelcolor": "white",
+            "xtick.color": "white",
+            "ytick.color": "white",
+            "axes.edgecolor": "#333333",
+        },
+    )
+    ax = sns.heatmap(
+        df,
+        annot=True,
+        fmt="d",
+        cmap=radar_cyan_cmap,
+        cbar_kws={"label": "# Configs", "ticks": [df.min().min(), df.max().max()]},
+        linewidths=0.5,
+        linecolor="#333333",
+        annot_kws={"color": "white"},
+    )
+
+    ax.set_title(
+        "MITRE ATT&CK Tactics Coverage (by # of Configs)", color="white", pad=12
+    )
+    ax.tick_params(axis="x", colors="white", rotation=30)
+    ax.tick_params(axis="y", colors="white", rotation=0)
+
+    plt.subplots_adjust(
+        top=0.80,  # enough room for the title
+        bottom=0.40,  # enough room for rotated tactic labels
+        left=0.20,  # keep y-axis label visible
+        right=0.92,  # keep colorbar visible
+    )
+    plt.subplots_adjust(bottom=0.50)  # Leave room for tactic labels
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    plt.savefig(out_path, dpi=200, facecolor="#121212")
+    plt.close()
+    return out_path
+
+
+# def build_tactics_heatmap_png(
+#     out_path: str = "output/tactics_heatmap.png",
+#     palette: str = "flare",  # You can change: mako, viridis, flare, crest
+# ) -> str:
+#     import pandas as pd
+
+#     rows = get_configs_core_fields()
+#     counts = count_tactics(rows)
+
+#     df = pd.DataFrame([counts], columns=MITRE_TACTICS, index=["Coverage"])
+
+#     # Dark mode style
+#     plt.figure(figsize=(12, 1.6), facecolor="#121212")
+#     sns.set_theme(style="dark")  # Dark background
+#     ax = sns.heatmap(
+#         df,
+#         annot=True,
+#         fmt="d",
+#         cmap=palette,
+#         cbar_kws={"label": "# Configs"},
+#         linewidths=0.5,
+#         linecolor="#333333",
+#         annot_kws={"color": "white"},  # White text annotations
+#     )
+
+#     # Dark mode titles and labels
+#     ax.set_title(
+#         "MITRE ATT&CK Tactics Coverage (by # of Configs)", color="white", pad=12
+#     )
+#     ax.tick_params(axis="x", colors="white", rotation=30)
+#     ax.tick_params(axis="y", colors="white", rotation=0)
+#     ax.figure.set_facecolor("#121212")
+
+#     plt.tight_layout()
+#     os.makedirs(os.path.dirname(out_path), exist_ok=True)
+#     plt.savefig(out_path, dpi=200, facecolor="#121212")  # Dark background saved
+#     plt.close()
+#     return out_path
+
+
+===== FILE: ./src/visualizations/tactics_radar.py =====
+# src/visualizations/tactics_radar.py
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.projections.polar import PolarAxes
+from src.visualizations.mitre import MITRE_TACTICS, count_tactics
+from src.db.db_filters import get_configs_core_fields
+
+
+def build_tactics_radar_png(out_path: str = "output/tactics_radar.png") -> str:
+    """
+    Generate a MITRE ATT&CK tactics coverage radar chart in dark mode.
+
+    Args:
+        out_path (str, optional): Output PNG file path. Defaults to 'output/tactics_radar.png'.
+
+    Returns:
+        str: Path to the generated PNG file.
+    """
+    # Get data from DB and count tactics using shared logic
+    rows = get_configs_core_fields()
+    counts = count_tactics(rows)
+    values = counts + [counts[0]]  # close the radar loop
+    angles = np.linspace(0, 2 * np.pi, len(MITRE_TACTICS) + 1)
+
+    # Dark mode figure
+    plt.figure(figsize=(8, 8), facecolor="#121212")
+    ax: PolarAxes = plt.subplot(111, polar=True)  # type: ignore
+    ax.set_facecolor("#121212")
+
+    # Plot data
+    ax.plot(angles, values, color="#00FFFF", linewidth=2)
+    ax.fill(angles, values, color="#00FFFF", alpha=0.25)
+
+    # Axes styling
+    ax.set_theta_offset(np.pi / 2.0)
+    ax.set_theta_direction(-1)
+    ax.set_thetagrids(
+        np.degrees(angles[:-1]), labels=MITRE_TACTICS, fontsize=10, color="white"
+    )
+    ax.set_rlabel_position(0)
+    plt.yticks(color="white")
+    ax.tick_params(colors="white")
+
+    # Title
+    ax.set_title(
+        "MITRE ATT&CK Tactics Coverage Radar", color="white", fontsize=14, pad=20
+    )
+
+    # Save
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    plt.savefig(out_path, dpi=200, facecolor="#121212")
+    plt.close()
+    return out_path
+
+
+===== FILE: ./to_add.csv =====
+config_id,config_name,config_desc,config_settings,status,remarks
+CAND-1,Enable PUA protection,Block potentially unwanted applications,HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\PUAProtection=1,active,""
+CAND-2,Enforce NTLMv2 only,Disable LM/NTLMv1 by setting highest compatibility,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\LmCompatibilityLevel=5,active,""
+CAND-3,Protect LSASS as PPL,Run LSASS as a protected process to mitigate credential theft,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\RunAsPPL=1,active,""
+CAND-4,Force dark mode UI,Set system and apps to dark theme for user preference,HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme=0; SystemUsesLightTheme=0,draft,""
+CAND-5,Taskbar align left,Set Windows 11 taskbar alignment to left,HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarAl=0,draft,""
+CAND-6,Enable Credential Guard,Use VBS to isolate secrets and protect credentials,HKLM\SYSTEM\CurrentControlSet\Control\Lsa\LsaCfgFlags=1,active,""
+CAND-7,Disable WDigest clear-text caching,Prevent WDigest from storing clear-text creds in memory,HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\WDigest\UseLogonCredential=0,active,""
+CAND-8,Require SMB signing (server),Require signing on SMB server to prevent tampering,HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters\RequireSecuritySignature=1,active,""
+CAND-9,Disable Print Spooler service (servers w/o printing),Reduce PrintNightmare class risk on non-print servers,HKLM\SYSTEM\CurrentControlSet\Services\Spooler\Start=4,active,""
+CAND-10,Block RDP device redirection (drive & clipboard),Prevent data exfil via RDP redirection,HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services\fDisableCdm=1; fDisableClip=1,active,""
+
+
