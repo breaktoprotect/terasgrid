@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 export default function Navbar() {
   const [theme, setTheme] = useState("dim"); // default = dark
 
-  // On mount: load theme from localStorage or fallback to "dim"
   useEffect(() => {
     const stored = localStorage.getItem("theme");
     const initial = stored || "dim";
@@ -12,7 +11,6 @@ export default function Navbar() {
     document.documentElement.setAttribute("data-theme", initial);
   }, []);
 
-  // Whenever theme changes: update <html> and save to localStorage
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
@@ -24,7 +22,8 @@ export default function Navbar() {
 
   return (
     <div className="navbar bg-base-300 shadow-md">
-      <div className="navbar-start">
+      <div className="navbar-start flex items-center">
+        <img src="/logo.png" alt="TerasGrid Logo" className="h-10 w-auto" />
         <a className="btn btn-ghost normal-case text-xl">TerasGrid UI</a>
       </div>
 
