@@ -1,11 +1,21 @@
 
 
 # Custom
-local_mitre_plus_hallu.DBs
+local_temp.db
 local.db
 sample_events.json
+external_tools/
+zz_whole_code_dump.txt
+nextjs_ui/zz_ui_code.txt
+nextjs_ui/z_ui_code.sh
+output/
 
+# Proprietaries
+benchmark_files/
 
+# Sqlite
+*.db-shm
+*.db-wal
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
