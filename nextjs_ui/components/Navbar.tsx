@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 export default function Navbar() {
-  const [theme, setTheme] = useState<"dim" | "lofi">("dim"); // consistent SSR default
+  const [theme, setTheme] = useState<"dim" | "lofi">("dim");
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
 
-  // only run after hydration
+  // Ensure component only renders after client mount
   useEffect(() => {
     setMounted(true);
     const stored = localStorage.getItem("theme") as "dim" | "lofi" | null;
@@ -15,42 +17,46 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    if (mounted) {
-      document.documentElement.setAttribute("data-theme", theme);
-      localStorage.setItem("theme", theme);
-    }
+    if (!mounted) return;
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
   }, [theme, mounted]);
 
   const toggleTheme = () => {
     setTheme(theme === "lofi" ? "dim" : "lofi");
   };
 
-  // 🚨 prevent hydration mismatch: render nothing until client mounts
-  if (!mounted) {
-    return null;
-  }
+  // 🚨 Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) return null;
 
   return (
     <div className="navbar bg-base-300 shadow-md">
       <div className="navbar-start flex items-center gap-2">
-        {/* Logo + Title */}
         <img src="/logo.png" alt="TerasGrid Logo" className="h-10 w-auto" />
-        <a className="btn btn-ghost normal-case text-xl">TerasGrid UI</a>
+        <span className="text-xl font-bold">TerasGrid UI</span>
       </div>
 
       <div className="navbar-center">
         <ul className="menu menu-horizontal px-1 gap-x-4">
           <li>
-            <a href="/">Dashboard</a>
+            <a href="/" className={pathname === "/" ? "active font-semibold" : ""}>
+              Dashboard
+            </a>
           </li>
           <li>
-            <a href="/setup">Setup</a>
+            <a href="/setup" className={pathname === "/setup" ? "active font-semibold" : ""}>
+              Setup
+            </a>
           </li>
           <li>
-            <a href="/dataViewer">Data Viewer</a>
+            <a href="/dataViewer" className={pathname === "/dataViewer" ? "active font-semibold" : ""}>
+              Data Viewer
+            </a>
           </li>
           <li>
-            <a href="/baselineAutomation">Baseline Automation</a>
+            <a href="/baselineAutomation" className={pathname === "/baselineAutomation" ? "active font-semibold" : ""}>
+              Baseline Automation
+            </a>
           </li>
         </ul>
       </div>
