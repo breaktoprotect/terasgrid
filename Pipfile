@@ -12,6 +12,10 @@ plotly = "*"
 kaleido = "*"
 seaborn = "*"
 matplotlib = "*"
+pdfplumber = "*"
+openpyxl = "*"
+tqdm = "*"
+fastapi = "*"
 
 [dev-packages]
 

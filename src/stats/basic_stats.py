@@ -1,14 +1,14 @@
 # src/stats/basic_stats.py
 from datetime import datetime, timedelta
 
-from config import DB_PATH, CSV_COLUMN_MAP
+from config import CORE_DB_PATH, CSV_COLUMN_MAP
 from src.db.schema_map import pk_field
 from src.db.db_init import get_db
 
 
 def build_basic_stats_json() -> dict:
     """Builds basic statistics about configuration settings in the DB."""
-    conn = get_db(DB_PATH)
+    conn = get_db(CORE_DB_PATH)
     cur = conn.cursor()
 
     pk = pk_field()
@@ -48,7 +48,7 @@ def build_basic_stats_json() -> dict:
 
 def build_recent_changes_json(days: int = 30) -> dict:
     """Builds statistics of LLM/MCP tool usage in the last N days."""
-    conn = get_db(DB_PATH)
+    conn = get_db(CORE_DB_PATH)
     cur = conn.cursor()
 
     cutoff = (datetime.now() - timedelta(days=days)).isoformat(timespec="seconds")

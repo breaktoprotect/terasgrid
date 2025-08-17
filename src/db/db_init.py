@@ -1,12 +1,11 @@
-# src/db/db_init.py
 import sqlite3
 import sqlite_vec
 from typing import Optional
-from config import DB_PATH, MODEL_ID
+from config import CORE_DB_PATH, MODEL_ID, TEMP_DB_PATH
 from sentence_transformers import SentenceTransformer
 
 
-def get_db(db_path: str = DB_PATH) -> sqlite3.Connection:
+def get_db(db_path: str = CORE_DB_PATH) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA synchronous=NORMAL;")
@@ -33,10 +32,12 @@ def init_core_schema(conn: sqlite3.Connection, *, embed_dim: int) -> None:
         """
         CREATE TABLE configs(
             config_id TEXT PRIMARY KEY,
+            status TEXT NOT NULL,
             config_name TEXT NOT NULL,
             config_desc TEXT NOT NULL,
             config_settings TEXT NOT NULL,
-            status TEXT NOT NULL,
+            role_applicability TEXT NOT NULL DEFAULT '' CHECK (role_applicability IN ('', 'Member Server', 'Domain Controller', 'All Roles')),      
+            os_version_applicability TEXT NOT NULL DEFAULT '', 
             mitre_tactic TEXT NOT NULL DEFAULT '',
             mitre_technique TEXT NOT NULL DEFAULT ''
         );
@@ -89,11 +90,54 @@ def init_observability(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_db_table ON db_op_log(table_name);")
 
 
+def init_benchmark_db(db_path: str = TEMP_DB_PATH) -> None:
+    """Create an empty benchmark DB file with WAL + synchronous settings, no tables yet."""
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    conn.row_factory = sqlite3.Row
+    conn.close()
+
+
+def init_benchmark_meta_table(conn: sqlite3.Connection) -> None:
+    """
+    Create a simple ingestion_meta table to track ingested files and prevent duplicates.
+    """
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ingestion_meta (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            table_name TEXT NOT NULL UNIQUE,
+            file_hash TEXT NOT NULL UNIQUE,
+            filename TEXT NOT NULL,
+            standard TEXT NOT NULL,   -- e.g. CIS, STIG, MS-Baseline
+            ts TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ingest_hash ON ingestion_meta(file_hash);"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ingest_standard ON ingestion_meta(standard);"
+    )
+
+
 def init_all(*, include_observability: bool = True) -> None:
     """Initialize DB with core + optional observability schema, auto-resolving embed_dim."""
     embed_dim = get_embed_dim()
-    with get_db(DB_PATH) as conn:
+
+    # * Core DB
+    with get_db(CORE_DB_PATH) as conn:
         init_core_schema(conn, embed_dim=embed_dim)
         if include_observability:
             init_observability(conn)
+        conn.commit()
+
+    # * Temp DB (e.g. for benchmarks, etc)
+    init_benchmark_db()
+
+    # * Benchmark Metadata table
+    with get_db(TEMP_DB_PATH) as conn:
+        init_benchmark_meta_table(conn)
         conn.commit()

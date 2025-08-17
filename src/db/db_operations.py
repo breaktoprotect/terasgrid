@@ -1,13 +1,13 @@
 import sqlite3
 from typing import Any, List, Tuple, Optional
 
-from config import DB_PATH
+from config import CORE_DB_PATH
 from src.db.db_init import get_db
 from src.db.schema_map import pk_field
 
 
 def execute_query(
-    query: str, params: Tuple = (), commit: bool = False, db_path: str = DB_PATH
+    query: str, params: Tuple = (), commit: bool = False, db_path: str = CORE_DB_PATH
 ) -> int:
     """Execute INSERT/UPDATE/DELETE without returning results. Returns affected row count."""
     with get_db(db_path) as conn:
@@ -18,7 +18,7 @@ def execute_query(
 
 
 def fetch_one(
-    query: str, params: Tuple = (), db_path: str = DB_PATH
+    query: str, params: Tuple = (), db_path: str = CORE_DB_PATH
 ) -> Optional[sqlite3.Row]:
     """Fetch a single row."""
     with get_db(db_path) as conn:
@@ -26,7 +26,7 @@ def fetch_one(
 
 
 def fetch_all(
-    query: str, params: Tuple = (), db_path: str = DB_PATH
+    query: str, params: Tuple = (), db_path: str = CORE_DB_PATH
 ) -> List[sqlite3.Row]:
     """Fetch multiple rows."""
     with get_db(db_path) as conn:
@@ -34,7 +34,7 @@ def fetch_all(
 
 
 # --- CRUD helpers ---
-def insert(table: str, data: dict, db_path: str = DB_PATH) -> int:
+def insert(table: str, data: dict, db_path: str = CORE_DB_PATH) -> int:
     if not data:
         raise ValueError("insert() received empty data dict")
     cols = ", ".join(data.keys())
@@ -44,7 +44,7 @@ def insert(table: str, data: dict, db_path: str = DB_PATH) -> int:
 
 
 def update(
-    table: str, data: dict, where: str, params: Tuple, db_path: str = DB_PATH
+    table: str, data: dict, where: str, params: Tuple, db_path: str = CORE_DB_PATH
 ) -> int:
     if not data:
         return 0  # nothing to update
@@ -55,12 +55,14 @@ def update(
     )
 
 
-def delete(table: str, where: str, params: Tuple, db_path: str = DB_PATH) -> int:
+def delete(table: str, where: str, params: Tuple, db_path: str = CORE_DB_PATH) -> int:
     sql = f"DELETE FROM {table} WHERE {where}"
     return execute_query(sql, params, commit=True, db_path=db_path)
 
 
-def update_by_pk(table: str, pk_value: Any, data: dict, db_path: str = DB_PATH) -> int:
+def update_by_pk(
+    table: str, pk_value: Any, data: dict, db_path: str = CORE_DB_PATH
+) -> int:
     """
     Update a single record in `table` by its primary key.
     The primary key column name is determined via schema_map.pk_field().
@@ -71,7 +73,7 @@ def update_by_pk(table: str, pk_value: Any, data: dict, db_path: str = DB_PATH) 
     )
 
 
-def delete_by_pk(table: str, pk_value: Any, db_path: str = DB_PATH) -> int:
+def delete_by_pk(table: str, pk_value: Any, db_path: str = CORE_DB_PATH) -> int:
     """Delete a record by primary key using schema_map.pk_field()."""
     pk_col = pk_field()
     return delete(table, where=f"{pk_col} = ?", params=(pk_value,), db_path=db_path)

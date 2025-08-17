@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime
 from typing import Optional, Dict, Any, Union
 
-from config import DB_PATH, CSV_COLUMN_MAP
+from config import CORE_DB_PATH, CSV_COLUMN_MAP
 
 
 def _now_iso() -> str:
@@ -33,7 +33,7 @@ def log_llm_action(
     request_id: Optional[str] = None
 ) -> None:
     """Log a single LLM/MCP tool action (non-idempotent only)."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(CORE_DB_PATH)
     try:
         conn.execute(
             """
@@ -59,7 +59,7 @@ def log_db_op(
     error: Optional[str] = None
 ) -> None:
     """Log a DB operation regardless of origin (MCP/API/CLI)."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(CORE_DB_PATH)
     try:
         conn.execute(
             """

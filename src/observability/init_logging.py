@@ -1,11 +1,11 @@
 # src/observability/init_logging.py
 import sqlite3
-from config import DB_PATH
+from config import CORE_DB_PATH
 
 
 def init_logging() -> None:
     """Create minimal tables for LLM tool logs and DB operation logs."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(CORE_DB_PATH)
     try:
         # 1) High-level LLM/MCP tool actions (non-idempotent only)
         conn.execute(

@@ -4,7 +4,7 @@ import os
 import shutil
 import sqlite3
 from typing import Callable, Iterable, Optional
-from config import DB_FILES, DB_PATH
+from config import ALL_DB_FILES
 
 OUTPUT_DIR = "./output"
 
@@ -12,9 +12,9 @@ OUTPUT_DIR = "./output"
 def destroy_dbs(db_files: Optional[Iterable[str]] = None) -> None:
     """
     Delete the given SQLite database files (if present).
-    Default set comes from config.DB_FILES.
+    Default set comes from config.ALL_DB_FILES.
     """
-    files = list(db_files) if db_files is not None else list(DB_FILES)
+    files = list(db_files) if db_files is not None else list(ALL_DB_FILES)
     for path in files:
         try:
             if os.path.exists(path):
@@ -63,7 +63,7 @@ def reset_dbs(
         touch_if_no_init: create empty SQLite files if no init function is provided.
         clear_output: whether to clear the ./output directory as part of reset.
     """
-    files = list(db_files) if db_files is not None else list(DB_FILES)
+    files = list(db_files) if db_files is not None else list(ALL_DB_FILES)
 
     # 0) Clear output if requested
     if clear_output:

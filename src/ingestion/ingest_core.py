@@ -1,21 +1,16 @@
 import pandas as pd
 import numpy as np
 from sqlite_vec import serialize_float32
-from config import DB_PATH, CSV_PATH, CSV_COLUMN_MAP, CSV_EMBEDDING_COLUMN_MAP
-from src.db.db_init import get_db
-from src.model_loader import get_model
 from sentence_transformers import SentenceTransformer
 
-
-def validate_mandatory_columns(df: pd.DataFrame) -> None:
-    """Ensure all mandatory columns from CSV_COLUMN_MAP exist in the CSV."""
-    missing = [
-        colname
-        for key, colname in CSV_COLUMN_MAP.items()
-        if key.endswith("_mandatory") and colname not in df.columns
-    ]
-    if missing:
-        raise ValueError(f"Missing mandatory CSV columns: {missing}")
+from config import CORE_DB_PATH, CSV_PATH, CSV_COLUMN_MAP, CSV_EMBEDDING_COLUMN_MAP
+from src.db.db_init import get_db
+from src.model_loader import get_model
+from src.ingestion.validations.core_validations import (
+    validate_mandatory_columns,
+    ensure_optional_columns,
+    validate_allowed_values,
+)
 
 
 def embed_rows(df: pd.DataFrame, model: SentenceTransformer) -> np.ndarray:
@@ -31,19 +26,15 @@ def embed_rows(df: pd.DataFrame, model: SentenceTransformer) -> np.ndarray:
     ).astype(np.float32)
 
 
-def ingest():
+def ingest() -> int:
     df = pd.read_csv(CSV_PATH, dtype=str).fillna("")
 
-    # Validate CSV structure
+    # Validations
     validate_mandatory_columns(df)
+    ensure_optional_columns(df)
+    validate_allowed_values(df)
 
-    # Ensure optional columns exist
-    for opt_key in [k for k in CSV_COLUMN_MAP if k.endswith("_optional")]:
-        colname = CSV_COLUMN_MAP[opt_key]
-        if colname not in df.columns:
-            df[colname] = ""
-
-    conn = get_db(DB_PATH)
+    conn = get_db(CORE_DB_PATH)
     model = get_model()
 
     embs = embed_rows(df, model)
@@ -51,10 +42,12 @@ def ingest():
     # Prepare insert order according to DB schema, using mapped names
     insert_cols = [
         CSV_COLUMN_MAP["unique_id_mandatory"],
+        CSV_COLUMN_MAP["status_mandatory"],
         CSV_COLUMN_MAP["name_mandatory"],
         CSV_COLUMN_MAP["description_mandatory"],
         CSV_COLUMN_MAP.get("settings_optional", ""),
-        CSV_COLUMN_MAP["status_mandatory"],
+        CSV_COLUMN_MAP.get("role_applicable_optional", ""),
+        CSV_COLUMN_MAP.get("os_version_optional", ""),
         CSV_COLUMN_MAP.get("mitre_tactic_optional", ""),
         CSV_COLUMN_MAP.get("mitre_technique_optional", ""),
     ]
@@ -62,8 +55,16 @@ def ingest():
     conn.executemany(
         """
         INSERT INTO configs(
-          config_id, config_name, config_desc, config_settings, status, mitre_tactic, mitre_technique
-        ) VALUES (?, ?, ?, ?, ?, ?, ?);
+          config_id,
+          status,
+          config_name,
+          config_desc,
+          config_settings,
+          role_applicability,
+          os_version_applicability,
+          mitre_tactic,
+          mitre_technique
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         """,
         df[insert_cols].values.tolist(),
     )
@@ -82,4 +83,6 @@ def ingest():
     )
 
     conn.commit()
-    print(f"[+] Ingested {len(df)} rows into fresh {DB_PATH} with embeddings.")
+    row_count = len(df)
+    print(f"[+] Ingested {row_count} rows into fresh {CORE_DB_PATH} with embeddings.")
+    return row_count

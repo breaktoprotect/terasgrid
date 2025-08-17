@@ -1,12 +1,12 @@
 import sqlite3
 from typing import List, Optional
 
-from config import DB_PATH, CSV_COLUMN_MAP
+from config import CORE_DB_PATH, CSV_COLUMN_MAP
 from src.db.db_operations import fetch_all, update
 from src.db.schema_map import pk_field
 
 
-def get_configs_missing_mitre(db_path: str = DB_PATH) -> List[sqlite3.Row]:
+def get_configs_missing_mitre(db_path: str = CORE_DB_PATH) -> List[sqlite3.Row]:
     """
     Retrieve configuration records where mitre_tactic or mitre_technique are empty.
     Useful for finding rows that still need enrichment.
@@ -27,7 +27,7 @@ def update_mitre_fields(
     config_id: str,
     mitre_tactic: Optional[str] = None,
     mitre_technique: Optional[str] = None,
-    db_path: str = DB_PATH,
+    db_path: str = CORE_DB_PATH,
 ) -> None:
     """Update exactly one tactic and/or one technique for a given config_id."""
     fields = {}
@@ -51,7 +51,7 @@ def update_mitre_fields(
     )
 
 
-def get_configs_core_fields(db_path: str = DB_PATH) -> List[sqlite3.Row]:
+def get_configs_core_fields(db_path: str = CORE_DB_PATH) -> List[sqlite3.Row]:
     """
     Return the core columns used by visualizations.
     """

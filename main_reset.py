@@ -1,6 +1,6 @@
 from src.db.db_reset import reset_dbs
 from src.db.db_init import init_all
-from src.ingest import ingest
+from src.ingestion.ingest_core import ingest
 
 if __name__ == "__main__":
     print("[*] Resetting databases and output directory...")

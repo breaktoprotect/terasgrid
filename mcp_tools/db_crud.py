@@ -15,17 +15,23 @@ mcp = FastMCP("Configuration Settings CRUD Operations")
 
 
 @mcp.tool()
-def insert_config(
-    data: Dict[str, Any],
+def insert_config_simple(
+    config_name: str,
+    config_desc: str,
+    config_settings: str,
     reason: str,
     request_id: Optional[str] = None,
 ) -> str:
     """
-    Create a new configuration record and generate its embedding.
+    Insert a new configuration with only the essential fields:
+      - config_name: Name/title of the configuration
+      - config_desc: Detailed description
+      - config_settings: Registry path(s), GPO setting(s), or command(s)
 
-    Automatically:
-      • Generates the primary key in the form: NEW_<7-char MD5 hash>
-      • Sets status to "pending"
+    All other fields are auto-filled:
+      • config_id is auto-generated (NEW_<hash>)
+      • status is set to "pending"
+      • Any unused columns are set to empty strings.
 
     Inserts into:
       • Main table (`configs`)
@@ -34,20 +40,74 @@ def insert_config(
     pk_col = pk_field()
     status_col = CSV_COLUMN_MAP["status_mandatory"]
 
-    # Auto-generate PK and enforce pending status
-    data[pk_col] = generate_unique_id(data)
-    data[status_col] = "pending"
+    # Auto-generate ID and set status
+    new_id = generate_unique_id(
+        {
+            "config_name": config_name,
+            "config_desc": config_desc,
+            "config_settings": config_settings,
+        }
+    )
+
+    record = {
+        pk_col: new_id,
+        "config_name": config_name.strip(),
+        "config_desc": config_desc.strip(),
+        "config_settings": config_settings.strip(),
+        status_col: "pending",
+    }
+
+    # Fill in other expected columns as blanks if they exist in schema
+    for col in CSV_COLUMN_MAP.values():
+        if col not in record:
+            record[col] = ""
 
     log_llm_action(
-        tool="insert_config",
-        pk={pk_col: data[pk_col]},
+        tool="insert_config_simple",
+        pk={pk_col: new_id},
         reason=reason,
         request_id=request_id,
         actor="llm",
     )
 
-    insert_config_with_embedding(data)
-    return f"Inserted {pk_col}={data[pk_col]} with status='pending' into configs and vec_configs."
+    insert_config_with_embedding(record)
+    return f"Inserted {pk_col}={new_id} with status='pending'."
+
+
+# @mcp.tool()
+# def insert_config(
+#     data: Dict[str, Any],
+#     reason: str,
+#     request_id: Optional[str] = None,
+# ) -> str:
+#     """
+#     Create a new configuration record and generate its embedding.
+
+#     Automatically:
+#       • Generates the primary key in the form: NEW_<7-char MD5 hash>
+#       • Sets status to "pending"
+
+#     Inserts into:
+#       • Main table (`configs`)
+#       • Vector table (`vec_configs`)
+#     """
+#     pk_col = pk_field()
+#     status_col = CSV_COLUMN_MAP["status_mandatory"]
+
+#     # Auto-generate PK and enforce pending status
+#     data[pk_col] = generate_unique_id(data)
+#     data[status_col] = "pending"
+
+#     log_llm_action(
+#         tool="insert_config",
+#         pk={pk_col: data[pk_col]},
+#         reason=reason,
+#         request_id=request_id,
+#         actor="llm",
+#     )
+
+#     insert_config_with_embedding(data)
+#     return f"Inserted {pk_col}={data[pk_col]} with status='pending' into configs and vec_configs."
 
 
 @mcp.tool()

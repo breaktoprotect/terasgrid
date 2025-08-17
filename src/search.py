@@ -1,4 +1,4 @@
-from config import DB_PATH, CSV_COLUMN_MAP
+from config import CORE_DB_PATH, CSV_COLUMN_MAP
 from sqlite_vec import serialize_float32
 import numpy as np
 from src.model_loader import get_model
@@ -7,7 +7,7 @@ from src.db.schema_map import pk_field
 
 
 def semantic_search(
-    query: str, top_k: int = 5, db_path: str = DB_PATH, status: str | None = None
+    query: str, top_k: int = 5, db_path: str = CORE_DB_PATH, status: str | None = None
 ):
     """Return top-k rows as a list of dicts (for MCP use)."""
     conn = get_db(db_path)
